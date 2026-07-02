@@ -2,6 +2,14 @@
   立体テトリス (TetrisCube3D) 仕様書
 ====================================================
 
+■ Git 運用ルール
+  - リポジトリ: https://github.com/Sawae-M/ClaudeCode-3DTetrisProject
+  - プロジェクトを編集した際は必ず commit & push を行う
+    git add -A
+    git commit -m "変更内容"
+    git push
+  - Claude がコードを編集した場合も同様に必ず commit & push する
+
 ■ 基本ルール
   - 5×5×5 のキューブにブロックを詰める
   - 5×5 の一面が揃うと消える

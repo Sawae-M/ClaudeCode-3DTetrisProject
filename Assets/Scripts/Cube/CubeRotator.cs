@@ -4,7 +4,7 @@ using UnityEngine;
 public class CubeRotator : MonoBehaviour
 {
     [Header("References")]
-    public Transform cubeRoot;       // ブロックを全部入れる親オブジェクト
+    public Transform cubeRoot;
     public GravityManager gravityManager;
     public PieceController pieceController;
 
@@ -13,40 +13,32 @@ public class CubeRotator : MonoBehaviour
 
     bool isRotating;
 
-    // キー入力受付 (GameManager から呼ぶか直接 Update で読む)
+    static readonly Vector3 CubeCenter = new Vector3(2f, 2f, 2f);
+
     void Update()
     {
         if (isRotating || GameManager.Instance?.State != GameState.Playing) return;
 
-        // Q/E : Z軸回転
         if (Input.GetKeyDown(KeyCode.Q)) StartCoroutine(Rotate(Vector3.forward,  90f));
         if (Input.GetKeyDown(KeyCode.E)) StartCoroutine(Rotate(Vector3.forward, -90f));
-        // Z/X : X軸回転
         if (Input.GetKeyDown(KeyCode.Z)) StartCoroutine(Rotate(Vector3.right,    90f));
         if (Input.GetKeyDown(KeyCode.X)) StartCoroutine(Rotate(Vector3.right,   -90f));
-        // C/V : Y軸回転
         if (Input.GetKeyDown(KeyCode.C)) StartCoroutine(Rotate(Vector3.up,       90f));
-        if (Input.GetKeyDown(KeyCode.V)) StartCoroutine(Rotate(Vector3.up,       -90f));
+        if (Input.GetKeyDown(KeyCode.V)) StartCoroutine(Rotate(Vector3.up,      -90f));
     }
-
-    // 5×5×5 グリッドの中心（セル座標 2,2,2 の中点）
-    static readonly Vector3 CubeCenter = new Vector3(2f, 2f, 2f);
 
     IEnumerator Rotate(Vector3 axis, float angle)
     {
         isRotating = true;
 
+        // 回転前にピースをキューブルートの子にして一緒に回す
         pieceController?.AttachToCubeRoot(cubeRoot);
 
-        // ワールド座標でのキューブ中心点
-        Vector3 worldCenter = cubeRoot.TransformPoint(CubeCenter);
-
-        // 開始・終了クォータニオンを記録して Slerp でアニメ
-        Quaternion startRot = cubeRoot.rotation;
-        Vector3    startPos = cubeRoot.position;
-        Quaternion endRot   = Quaternion.AngleAxis(angle, axis) * startRot;
-        // 中心点を維持した終了位置を計算
-        Vector3 endPos = worldCenter + Quaternion.AngleAxis(angle, axis) * (startPos - worldCenter);
+        Vector3    worldCenter = cubeRoot.TransformPoint(CubeCenter);
+        Quaternion startRot    = cubeRoot.rotation;
+        Vector3    startPos    = cubeRoot.position;
+        Quaternion endRot      = Quaternion.AngleAxis(angle, axis) * startRot;
+        Vector3    endPos      = worldCenter + Quaternion.AngleAxis(angle, axis) * (startPos - worldCenter);
 
         float t = 0f;
         while (t < rotateDuration)
@@ -58,10 +50,10 @@ public class CubeRotator : MonoBehaviour
             yield return null;
         }
 
-        // 誤差をゼロにして完全に揃える
         cubeRoot.rotation = endRot;
         cubeRoot.position = endPos;
 
+        // 重力方向を更新してからピースをデタッチ（DetachFromCubeRoot内でRedrawが走る）
         gravityManager.RotateGravity(axis, angle);
         pieceController?.DetachFromCubeRoot();
 

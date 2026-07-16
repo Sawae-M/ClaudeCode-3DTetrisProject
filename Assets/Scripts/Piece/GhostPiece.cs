@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 落下先を半透明で表示するゴーストピース
 public class GhostPiece : MonoBehaviour
 {
     [Header("Prefabs")]
@@ -17,29 +16,31 @@ public class GhostPiece : MonoBehaviour
     {
         ClearGhost();
 
-        Vector3Int gravity = gravityManager.GravityVector;
+        if (ghostBlockPrefab == null) return;
+
+        Vector3Int gravity    = gravityManager.GravityVector;
         Vector3Int testOrigin = piece.Origin;
 
-        // 落下可能な限り進める
+        // 落下できる限り進める
         while (true)
         {
-            Vector3Int next = testOrigin + gravity;
-            var cells = piece.GetWorldCells(next);
+            Vector3Int next  = testOrigin + gravity;
+            var        cells = piece.GetWorldCells(next);
             if (board.CanPlace(cells))
                 testOrigin = next;
             else
                 break;
         }
 
-        // 現在位置と同じなら表示しない
+        // 現在位置と同じ（着地済み）なら非表示
         if (testOrigin == piece.Origin) return;
 
-        var ghostCells = piece.GetWorldCells(testOrigin);
-        foreach (var c in ghostCells)
+        foreach (var c in piece.GetWorldCells(testOrigin))
         {
             if (!board.InBounds(c)) continue;
             var go = Instantiate(ghostBlockPrefab, transform);
-            go.transform.position = new Vector3(c.x, c.y, c.z);
+            // PieceController と同じ親空間 (transform = PieceController) に合わせる
+            go.transform.localPosition = new Vector3(c.x, c.y, c.z);
             ghostObjects.Add(go);
         }
     }

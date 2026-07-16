@@ -10,14 +10,14 @@ public class PieceController : MonoBehaviour
     public PieceSpawner pieceSpawner;
     public FaceEliminator faceEliminator;
     public GhostPiece ghostPiece;
+    public CameraController cameraController; // 視点連動に使用
 
     [Header("Prefabs")]
     public GameObject blockPrefab;
 
-    // 現在のピースデータ
     PieceDefinition currentDef;
-    Vector3Int origin;                   // ピース基準座標（グリッド）
-    List<Vector3Int> localCells = new(); // ローカルオフセット
+    Vector3Int origin;
+    List<Vector3Int> localCells = new();
     List<GameObject> blockObjects = new();
 
     float fallTimer;
@@ -34,13 +34,17 @@ public class PieceController : MonoBehaviour
 
     void HandleInput()
     {
-        // 移動軸：重力方向以外の2軸
-        GetMoveAxes(gravityManager.Current, out Vector3Int axisA, out Vector3Int axisB);
+        // カメラ視点に合わせた移動軸を取得
+        GetMoveAxesForCamera(
+            gravityManager.Current,
+            cameraController,
+            out Vector3Int left, out Vector3Int right,
+            out Vector3Int up,   out Vector3Int down);
 
-        if (Input.GetKeyDown(KeyCode.LeftArrow))  TryMove(-axisA);
-        if (Input.GetKeyDown(KeyCode.RightArrow)) TryMove( axisA);
-        if (Input.GetKeyDown(KeyCode.UpArrow))    TryMove( axisB);
-        if (Input.GetKeyDown(KeyCode.DownArrow))  TryMove(-axisB);
+        if (Input.GetKeyDown(KeyCode.LeftArrow))  TryMove(left);
+        if (Input.GetKeyDown(KeyCode.RightArrow)) TryMove(right);
+        if (Input.GetKeyDown(KeyCode.UpArrow))    TryMove(up);
+        if (Input.GetKeyDown(KeyCode.DownArrow))  TryMove(down);
 
         fastFall = Input.GetKey(KeyCode.Space);
     }
@@ -65,23 +69,8 @@ public class PieceController : MonoBehaviour
         var newCells = GetWorldCells(origin + delta);
         if (board.CanPlace(newCells))
         {
-            ErasePieceFromRenderer();
             origin += delta;
-            DrawPiece();
-            ghostPiece?.UpdateGhost(this);
-            return true;
-        }
-        return false;
-    }
-
-    bool TryMoveBool(Vector3Int delta)
-    {
-        var newCells = GetWorldCells(origin + delta);
-        if (board.CanPlace(newCells))
-        {
-            ErasePieceFromRenderer();
-            origin += delta;
-            DrawPiece();
+            RedrawPiece();
             ghostPiece?.UpdateGhost(this);
             return true;
         }
@@ -90,14 +79,12 @@ public class PieceController : MonoBehaviour
 
     void Lock()
     {
-        // ボードに確定配置
         board.Place(GetWorldCells(origin));
+        ghostPiece?.ClearGhost();
+        DestroyPieceObjects();
+
         boardRenderer.FullRedraw();
 
-        // ゴーストをクリア
-        ghostPiece?.ClearGhost();
-
-        // 面消去
         int cleared = faceEliminator.EliminateAll(board, gravityManager.Current);
         if (cleared > 0)
         {
@@ -106,37 +93,38 @@ public class PieceController : MonoBehaviour
         }
 
         hasPiece = false;
-        DestroyPieceObjects();
-
         pieceSpawner.SpawnNext();
     }
 
     public bool Spawn(PieceDefinition def, Vector3Int spawnPos)
     {
-        currentDef = def;
-        origin = spawnPos;
-        localCells = new List<Vector3Int>(def.cells);
+        currentDef  = def;
+        origin      = spawnPos;
+        localCells  = new List<Vector3Int>(def.cells);
 
         if (!board.CanPlace(GetWorldCells(origin))) return false;
 
-        hasPiece = true;
+        hasPiece  = true;
         fallTimer = 0f;
-        DrawPiece();
+        RedrawPiece();
         ghostPiece?.UpdateGhost(this);
         return true;
     }
 
-    // キューブ回転時にピースをCubeRootに一時接続
+    // キューブ回転アニメ中にピースをCubeRootへ一時的に接続
     public void AttachToCubeRoot(Transform cubeRoot)
     {
         foreach (var go in blockObjects)
-            go.transform.SetParent(cubeRoot);
+            if (go != null) go.transform.SetParent(cubeRoot, true);
     }
 
     public void DetachFromCubeRoot()
     {
         foreach (var go in blockObjects)
-            go.transform.SetParent(transform);
+            if (go != null) go.transform.SetParent(transform, true);
+        // 回転後にグリッド座標へ再スナップ
+        RedrawPiece();
+        ghostPiece?.UpdateGhost(this);
     }
 
     public List<Vector3Int> GetWorldCells(Vector3Int org)
@@ -150,28 +138,22 @@ public class PieceController : MonoBehaviour
     public List<Vector3Int> CurrentWorldCells => GetWorldCells(origin);
     public Vector3Int Origin => origin;
 
-    void DrawPiece()
+    void RedrawPiece()
     {
         DestroyPieceObjects();
-        var cells = GetWorldCells(origin);
-        foreach (var c in cells)
+        foreach (var c in GetWorldCells(origin))
         {
             if (!board.InBounds(c)) continue;
             var go = Instantiate(blockPrefab, transform);
-            go.transform.position = new Vector3(c.x, c.y, c.z);
+            go.transform.localPosition = new Vector3(c.x, c.y, c.z);
             var mr = go.GetComponent<MeshRenderer>();
             if (mr != null)
             {
-                mr.material = new Material(mr.sharedMaterial);
+                mr.material       = new Material(mr.sharedMaterial);
                 mr.material.color = currentDef.color;
             }
             blockObjects.Add(go);
         }
-    }
-
-    void ErasePieceFromRenderer()
-    {
-        DestroyPieceObjects();
     }
 
     void DestroyPieceObjects()
@@ -181,25 +163,54 @@ public class PieceController : MonoBehaviour
         blockObjects.Clear();
     }
 
-    // 重力方向以外の移動2軸を返す
-    static void GetMoveAxes(GravityDirection gravity, out Vector3Int axisA, out Vector3Int axisB)
+    // ─────────────────────────────────────────────────────────────
+    // カメラ視点に合わせてキー→グリッド移動方向を決定
+    // カメラの右・上ベクトルをグリッド軸にスナップして返す
+    // ─────────────────────────────────────────────────────────────
+    static void GetMoveAxesForCamera(
+        GravityDirection gravity,
+        CameraController cam,
+        out Vector3Int left, out Vector3Int right,
+        out Vector3Int up,   out Vector3Int down)
     {
-        switch (gravity)
-        {
-            case GravityDirection.Down:
-            case GravityDirection.Up:
-                axisA = Vector3Int.right;
-                axisB = new Vector3Int(0, 0, 1);
-                break;
-            case GravityDirection.Left:
-            case GravityDirection.Right:
-                axisA = Vector3Int.up;
-                axisB = new Vector3Int(0, 0, 1);
-                break;
-            default:
-                axisA = Vector3Int.right;
-                axisB = Vector3Int.up;
-                break;
-        }
+        // 重力方向（グリッド落下軸）
+        Vector3 gravVec = GravityDirToVector3(gravity);
+
+        // カメラの右・上方向をグリッド軸にスナップ
+        Vector3 camRight = cam != null ? cam.transform.right   : Vector3.right;
+        Vector3 camUp    = cam != null ? cam.transform.up      : Vector3.up;
+
+        // 重力軸成分を除去して平面上にプロジェクション
+        camRight = Vector3.ProjectOnPlane(camRight, gravVec).normalized;
+        camUp    = Vector3.ProjectOnPlane(camUp,    gravVec).normalized;
+
+        // 最も近い整数軸にスナップ
+        Vector3Int snapRight = SnapToAxis(camRight);
+        Vector3Int snapUp    = SnapToAxis(camUp);
+
+        right = snapRight;
+        left  = -snapRight;
+        up    = snapUp;
+        down  = -snapUp;
     }
+
+    // ベクトルを最も近い 6 軸方向（±X/Y/Z）に丸める
+    static Vector3Int SnapToAxis(Vector3 v)
+    {
+        float ax = Mathf.Abs(v.x), ay = Mathf.Abs(v.y), az = Mathf.Abs(v.z);
+        if (ax >= ay && ax >= az) return new Vector3Int((int)Mathf.Sign(v.x), 0, 0);
+        if (ay >= ax && ay >= az) return new Vector3Int(0, (int)Mathf.Sign(v.y), 0);
+        return new Vector3Int(0, 0, (int)Mathf.Sign(v.z));
+    }
+
+    static Vector3 GravityDirToVector3(GravityDirection d) => d switch
+    {
+        GravityDirection.Down    => Vector3.down,
+        GravityDirection.Up      => Vector3.up,
+        GravityDirection.Left    => Vector3.left,
+        GravityDirection.Right   => Vector3.right,
+        GravityDirection.Forward => Vector3.forward,
+        GravityDirection.Back    => Vector3.back,
+        _ => Vector3.down
+    };
 }

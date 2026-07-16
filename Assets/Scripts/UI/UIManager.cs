@@ -19,6 +19,11 @@ public class UIManager : MonoBehaviour
     {
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (restartButton != null) restartButton.onClick.AddListener(() => GameManager.Instance.Restart());
+
+        // 操作説明を Canvas 上に自動生成
+        var canvas = FindFirstObjectByType<Canvas>();
+        if (canvas != null)
+            ControlsUI.CreateOnCanvas(canvas);
     }
 
     public void UpdateScore(int score)

@@ -24,6 +24,13 @@ public class PieceController : MonoBehaviour
     bool fastFall;
     bool hasPiece;
 
+    void Start()
+    {
+        // Inspector 未設定の場合は自動取得
+        if (cameraController == null)
+            cameraController = FindObjectOfType<CameraController>();
+    }
+
     void Update()
     {
         if (!hasPiece || GameManager.Instance?.State != GameState.Playing) return;
@@ -173,25 +180,24 @@ public class PieceController : MonoBehaviour
         out Vector3Int left, out Vector3Int right,
         out Vector3Int up,   out Vector3Int down)
     {
-        // 重力方向（グリッド落下軸）
-        Vector3 gravVec = GravityDirToVector3(gravity);
-
-        // カメラの右・上方向をグリッド軸にスナップ
+        Vector3 gravVec  = GravityDirToVector3(gravity);
         Vector3 camRight = cam != null ? cam.transform.right   : Vector3.right;
-        Vector3 camUp    = cam != null ? cam.transform.up      : Vector3.up;
+        Vector3 camFwd   = cam != null ? cam.transform.forward : Vector3.forward;
 
-        // 重力軸成分を除去して平面上にプロジェクション
-        camRight = Vector3.ProjectOnPlane(camRight, gravVec).normalized;
-        camUp    = Vector3.ProjectOnPlane(camUp,    gravVec).normalized;
+        // 重力軸成分を除去して水平面にプロジェクション
+        Vector3 projRight = Vector3.ProjectOnPlane(camRight, gravVec).normalized;
 
-        // 最も近い整数軸にスナップ
-        Vector3Int snapRight = SnapToAxis(camRight);
-        Vector3Int snapUp    = SnapToAxis(camUp);
+        // カメラ up は横視点では重力と平行になるため使えない。
+        // 代わりにカメラ forward を重力面に投影して "奥行き移動軸" とする。
+        Vector3 projFwd = Vector3.ProjectOnPlane(camFwd, gravVec).normalized;
+
+        Vector3Int snapRight = SnapToAxis(projRight);
+        Vector3Int snapFwd   = SnapToAxis(projFwd);
 
         right = snapRight;
         left  = -snapRight;
-        up    = snapUp;
-        down  = -snapUp;
+        up    = snapFwd;    // ↑ = カメラ奥方向
+        down  = -snapFwd;   // ↓ = カメラ手前方向
     }
 
     // ベクトルを最も近い 6 軸方向（±X/Y/Z）に丸める

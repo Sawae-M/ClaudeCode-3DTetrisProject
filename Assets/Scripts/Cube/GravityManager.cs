@@ -8,7 +8,17 @@ public class GravityManager : MonoBehaviour
 
     public GravityDirection Current { get; private set; } = GravityDirection.Down;
 
-    // 重力ベクトル（ワールド座標系、ピースが「落ちる」方向）
+    // カメラ視点インデックス → 重力方向（カメラ方向の反対 = ブロック落下方向）
+    // 視点 0:Top  1:Bottom  2:Right  3:Left  4:Front  5:Back
+    public static readonly GravityDirection[] ViewToGravity = {
+        GravityDirection.Down,    // 0 Top    : カメラが上 → 重力 下
+        GravityDirection.Up,      // 1 Bottom : カメラが下 → 重力 上
+        GravityDirection.Left,    // 2 Right  : カメラが右 → 重力 左
+        GravityDirection.Right,   // 3 Left   : カメラが左 → 重力 右
+        GravityDirection.Forward, // 4 Front  : カメラが手前 → 重力 奥（+Z）
+        GravityDirection.Back,    // 5 Back   : カメラが奥 → 重力 手前（-Z）
+    };
+
     public Vector3Int GravityVector => Current switch
     {
         GravityDirection.Down    => new Vector3Int( 0, -1,  0),
@@ -31,35 +41,10 @@ public class GravityManager : MonoBehaviour
         Current = dir;
     }
 
-    // キューブ回転に合わせて重力方向を変換
-    // axis: X軸回転(1,0,0) or Y軸(0,1,0) or Z軸(0,0,1), angle: +90 or -90
-    public void RotateGravity(Vector3 axis, float angle)
+    // カメラ視点インデックスから重力を設定
+    public void SetFromView(int viewIndex)
     {
-        var q = Quaternion.AngleAxis(angle, axis);
-        var v = q * GravityDirToVector3(Current);
-        Current = Vector3ToGravityDir(v);
-    }
-
-    static Vector3 GravityDirToVector3(GravityDirection d) => d switch
-    {
-        GravityDirection.Down    => Vector3.down,
-        GravityDirection.Up      => Vector3.up,
-        GravityDirection.Left    => Vector3.left,
-        GravityDirection.Right   => Vector3.right,
-        GravityDirection.Forward => Vector3.forward,
-        GravityDirection.Back    => Vector3.back,
-        _ => Vector3.down
-    };
-
-    static GravityDirection Vector3ToGravityDir(Vector3 v)
-    {
-        v = v.normalized;
-        float threshold = 0.9f;
-        if (v.y < -threshold) return GravityDirection.Down;
-        if (v.y >  threshold) return GravityDirection.Up;
-        if (v.x < -threshold) return GravityDirection.Left;
-        if (v.x >  threshold) return GravityDirection.Right;
-        if (v.z >  threshold) return GravityDirection.Forward;
-        return GravityDirection.Back;
+        if (viewIndex >= 0 && viewIndex < ViewToGravity.Length)
+            Current = ViewToGravity[viewIndex];
     }
 }

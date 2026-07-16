@@ -65,10 +65,11 @@ public class PieceSpawner : MonoBehaviour
         int originA = (Board.Size - (maxA - minA + 1)) / 2 - minA;
         int originB = (Board.Size - (maxB - minB + 1)) / 2 - minB;
 
-        // 重力軸は入口面（ピースがキューブに入ってくる側）に配置
-        // d=0 のセルが入口面に来るようにオフセット
+        // 重力軸: 入口面に最も近いセルを合わせる
+        // entryFace=0（低端から入る）→ minD を合わせる
+        // entryFace=Size-1（高端から入る）→ maxD を合わせる
         int entryFace = GetEntryFaceIndex(dir);
-        int originD   = entryFace - minD; // minD を入口面に合わせる
+        int originD   = entryFace == 0 ? -minD : entryFace - maxD;
 
         return BuildVector(dir, originA, originB, originD);
     }

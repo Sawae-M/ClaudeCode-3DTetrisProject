@@ -27,11 +27,12 @@ public class PieceSpawner : MonoBehaviour
     public void SpawnNext()
     {
         if (pieces == null || pieces.Length == 0) return;
+
         var current = next;
         next = PickRandom();
 
-        // スポーン位置 = 重力方向の反対端、中央付近
-        Vector3Int spawnPos = GetSpawnPosition(gravityManager.Current);
+        // ピースのセル範囲を考慮して入口面中央にスポーン
+        Vector3Int spawnPos = ComputeSpawnOrigin(gravityManager.Current, current.cells);
 
         bool ok = pieceController.Spawn(current, spawnPos);
         if (!ok)
@@ -43,21 +44,69 @@ public class PieceSpawner : MonoBehaviour
         GameManager.Instance?.uiManager?.UpdateNextPiece(next);
     }
 
-    // 重力方向ごとのスポーン位置（キューブの"入り口"中央）
-    Vector3Int GetSpawnPosition(GravityDirection dir)
+    // ピースのセルオフセット群を考慮し、入口面の2軸で中央に揃えたスポーン原点を返す
+    Vector3Int ComputeSpawnOrigin(GravityDirection dir, Vector3Int[] cells)
     {
-        int c = Board.Size / 2; // 2
+        // 重力方向に垂直な2軸のmin/maxを取得して中央寄せする
+        int minA = int.MaxValue, maxA = int.MinValue;
+        int minB = int.MaxValue, maxB = int.MinValue;
+        int minD = int.MaxValue, maxD = int.MinValue;
+
+        foreach (var c in cells)
+        {
+            GetComponents(dir, c, out int a, out int b, out int d);
+            if (a < minA) minA = a; if (a > maxA) maxA = a;
+            if (b < minB) minB = b; if (b > maxB) maxB = b;
+            if (d < minD) minD = d; if (d > maxD) maxD = d;
+        }
+
+        // 2軸を中央に揃えるオフセット
+        int originA = (Board.Size - (maxA - minA + 1)) / 2 - minA;
+        int originB = (Board.Size - (maxB - minB + 1)) / 2 - minB;
+
+        // 重力軸は入口面（ピースがキューブに入ってくる側）に配置
+        // d=0 のセルが入口面に来るようにオフセット
+        int entryFace = GetEntryFaceIndex(dir);
+        int originD   = entryFace - minD; // minD を入口面に合わせる
+
+        return BuildVector(dir, originA, originB, originD);
+    }
+
+    // セルを重力方向に応じて (axisA成分, axisB成分, 深さ成分) に分解
+    static void GetComponents(GravityDirection dir, Vector3Int c, out int a, out int b, out int d)
+    {
+        switch (dir)
+        {
+            case GravityDirection.Down:
+            case GravityDirection.Up:      a = c.x; b = c.z; d = c.y; break;
+            case GravityDirection.Left:
+            case GravityDirection.Right:   a = c.y; b = c.z; d = c.x; break;
+            default:                       a = c.x; b = c.y; d = c.z; break;
+        }
+    }
+
+    // (a, b, depth) → Vector3Int（重力方向に応じた軸割り当て）
+    static Vector3Int BuildVector(GravityDirection dir, int a, int b, int d)
+    {
         return dir switch
         {
-            GravityDirection.Down    => new Vector3Int(c, Board.Size - 1, c),
-            GravityDirection.Up      => new Vector3Int(c, 0,              c),
-            GravityDirection.Left    => new Vector3Int(Board.Size - 1, c, c),
-            GravityDirection.Right   => new Vector3Int(0,              c, c),
-            GravityDirection.Forward => new Vector3Int(c, c, 0),
-            GravityDirection.Back    => new Vector3Int(c, c, Board.Size - 1),
-            _ => new Vector3Int(c, Board.Size - 1, c)
+            GravityDirection.Down  or GravityDirection.Up      => new Vector3Int(a, d, b),
+            GravityDirection.Left  or GravityDirection.Right   => new Vector3Int(d, a, b),
+            _                                                   => new Vector3Int(a, b, d),
         };
     }
+
+    // 入口面のインデックス（ピースが最初に現れる深さ位置）
+    static int GetEntryFaceIndex(GravityDirection dir) => dir switch
+    {
+        GravityDirection.Down    => Board.Size - 1, // Y の最大側から入る
+        GravityDirection.Up      => 0,
+        GravityDirection.Left    => Board.Size - 1,
+        GravityDirection.Right   => 0,
+        GravityDirection.Forward => 0,
+        GravityDirection.Back    => Board.Size - 1,
+        _ => Board.Size - 1
+    };
 
     PieceDefinition PickRandom() => pieces[Random.Range(0, pieces.Length)];
 }

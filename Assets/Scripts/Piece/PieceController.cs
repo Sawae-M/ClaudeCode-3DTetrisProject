@@ -53,6 +53,12 @@ public class PieceController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.UpArrow))    TryMove(up);
         if (Input.GetKeyDown(KeyCode.DownArrow))  TryMove(down);
 
+        // ピース回転（Y軸: Q=反時計 / E=時計、X軸: Z=前傾 / X=後傾）
+        if (Input.GetKeyDown(KeyCode.Q)) TryRotate(c => new Vector3Int(-c.z,  c.y,  c.x));
+        if (Input.GetKeyDown(KeyCode.E)) TryRotate(c => new Vector3Int( c.z,  c.y, -c.x));
+        if (Input.GetKeyDown(KeyCode.Z)) TryRotate(c => new Vector3Int( c.x,  c.z, -c.y));
+        if (Input.GetKeyDown(KeyCode.X)) TryRotate(c => new Vector3Int( c.x, -c.z,  c.y));
+
         fastFall = Input.GetKey(KeyCode.Space);
     }
 
@@ -68,6 +74,23 @@ public class PieceController : MonoBehaviour
             fallTimer = 0f;
             if (!TryMove(gravityManager.GravityVector))
                 Lock();
+        }
+    }
+
+    // 90度スナップ回転。範囲外なら即キャンセル（壁キックなし）
+    void TryRotate(System.Func<Vector3Int, Vector3Int> rot)
+    {
+        var rotated = new List<Vector3Int>();
+        foreach (var c in localCells) rotated.Add(rot(c));
+
+        var world = new List<Vector3Int>();
+        foreach (var c in rotated) world.Add(origin + c);
+
+        if (board.CanPlace(world))
+        {
+            localCells = rotated;
+            RedrawPiece();
+            ghostPiece?.UpdateGhost(this);
         }
     }
 

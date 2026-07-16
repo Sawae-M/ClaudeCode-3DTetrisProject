@@ -38,15 +38,18 @@ public class UIManager : MonoBehaviour
         nextPieceText = MakeText(nextPanel, "NEXT  -", 22);
 
         // ── 操作説明（左下） ─────────────────────────────────
-        var ctrlPanel = MakeBox(ct, new Vector2(0,0), new Vector2(10,10), new Vector2(240, 190));
+        var ctrlPanel = MakeBox(ct, new Vector2(0,0), new Vector2(10,10), new Vector2(240, 260));
         MakeText(ctrlPanel,
-            "[ ピース操作 ]\n" +
-            "← →  左右移動\n" +
-            "↑ ↓  奥・手前移動\n" +
+            "[ 移動 ]\n" +
+            "← →  左右\n" +
+            "↑ ↓  奥・手前\n" +
             "Space  高速落下\n\n" +
-            "[ カメラ視点 ]\n" +
-            "W / S  上下の面へ\n" +
-            "A / D  左右の面へ",
+            "[ 回転 ]\n" +
+            "Q / E  Y軸回転\n" +
+            "Z / X  X軸回転\n\n" +
+            "[ 視点 ]\n" +
+            "W / S  上下\n" +
+            "A / D  左右",
             16);
 
         // ── ゲームオーバー（中央） ──────────────────────────

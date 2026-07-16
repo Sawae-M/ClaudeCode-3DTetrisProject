@@ -71,6 +71,7 @@ public static class SceneSetup
         pieceCtr.pieceSpawner    = spawner;
         pieceCtr.faceEliminator  = faceElim;
         pieceCtr.ghostPiece      = ghost;
+        pieceCtr.cameraController = camCtrl;
 
         spawner.pieceController = pieceCtr;
         spawner.board           = board;

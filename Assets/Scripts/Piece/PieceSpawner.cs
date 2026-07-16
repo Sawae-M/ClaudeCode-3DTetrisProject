@@ -37,6 +37,7 @@ public class PieceSpawner : MonoBehaviour
         bool ok = pieceController.Spawn(current, spawnPos);
         if (!ok)
         {
+            Debug.LogWarning($"[PieceSpawner] Spawn failed: piece={current.pieceName} pos={spawnPos} gravity={gravityManager.Current}");
             GameManager.Instance.TriggerGameOver();
             return;
         }

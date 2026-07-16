@@ -53,7 +53,7 @@ public class UIManager : MonoBehaviour
             12);
 
         // ── ゲームオーバー（中央） ───────────────
-        gameOverPanel = Box(ct, new Vector2(0.5f, 0.5f), new Vector2(-160, -90), new Vector2(320, 180)).gameObject;
+        gameOverPanel = Box(ct, new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(340, 200)).gameObject;
         finalScoreText = Label(gameOverPanel.transform, "GAME OVER\nSCORE: 0", 22);
 
         var btnGO   = new GameObject("Restart");
@@ -140,5 +140,10 @@ public class UIManager : MonoBehaviour
         if (gameOverPanel) gameOverPanel.SetActive(true);
         if (finalScoreText)
             finalScoreText.text = $"GAME OVER\nSCORE: {GameManager.Instance.Score:N0}";
+    }
+
+    public void HideGameOver()
+    {
+        if (gameOverPanel) gameOverPanel.SetActive(false);
     }
 }

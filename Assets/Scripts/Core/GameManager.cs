@@ -73,7 +73,7 @@ public class GameManager : MonoBehaviour
     {
         State = GameState.GameOver;
         uiManager?.ShowGameOver();
-        Debug.Log("Game Over");
+        Debug.LogWarning($"[GameManager] Game Over triggered. Score={Score} Level={Level}");
     }
 
     public void Restart()
@@ -82,6 +82,7 @@ public class GameManager : MonoBehaviour
         Level = 1;
         levelTimer = 0f;
         State = GameState.Playing;
+        uiManager?.HideGameOver();
         board.Initialize();
         boardRenderer.FullRedraw();
         pieceSpawner.SpawnNext();

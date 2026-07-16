@@ -206,21 +206,33 @@ public class PieceController : MonoBehaviour
         Vector3 gravVec  = GravityDirToVector3(gravity);
         Vector3 camRight = cam != null ? cam.transform.right   : Vector3.right;
         Vector3 camFwd   = cam != null ? cam.transform.forward : Vector3.forward;
+        Vector3 camUp    = cam != null ? cam.transform.up      : Vector3.up;
 
-        // 重力軸成分を除去して水平面にプロジェクション
-        Vector3 projRight = Vector3.ProjectOnPlane(camRight, gravVec).normalized;
+        // 右移動軸: カメラ right を重力面に投影
+        Vector3 projRight = Vector3.ProjectOnPlane(camRight, gravVec);
+        if (projRight.sqrMagnitude < 0.01f)
+            projRight = Vector3.ProjectOnPlane(camUp, gravVec);
+        projRight = projRight.normalized;
 
-        // カメラ up は横視点では重力と平行になるため使えない。
-        // 代わりにカメラ forward を重力面に投影して "奥行き移動軸" とする。
-        Vector3 projFwd = Vector3.ProjectOnPlane(camFwd, gravVec).normalized;
+        // 奥行き移動軸: カメラ forward を重力面に投影
+        // 真上・真下視点では forward が重力と平行になるため、
+        // フォールバックとしてカメラ up を使う
+        Vector3 projFwd = Vector3.ProjectOnPlane(camFwd, gravVec);
+        if (projFwd.sqrMagnitude < 0.01f)
+            projFwd = Vector3.ProjectOnPlane(camUp, gravVec);
+        projFwd = projFwd.normalized;
 
         Vector3Int snapRight = SnapToAxis(projRight);
         Vector3Int snapFwd   = SnapToAxis(projFwd);
 
+        // snapRight と snapFwd が同じ軸になった場合は直交する別軸に補正
+        if (snapRight == snapFwd || snapRight == -snapFwd)
+            snapFwd = new Vector3Int(snapRight.z, snapRight.x, snapRight.y);
+
         right = snapRight;
         left  = -snapRight;
-        up    = snapFwd;    // ↑ = カメラ奥方向
-        down  = -snapFwd;   // ↓ = カメラ手前方向
+        up    = snapFwd;
+        down  = -snapFwd;
     }
 
     // ベクトルを最も近い 6 軸方向（±X/Y/Z）に丸める

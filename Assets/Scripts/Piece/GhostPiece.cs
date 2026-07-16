@@ -21,12 +21,15 @@ public class GhostPiece : MonoBehaviour
         Vector3Int gravity    = gravityManager.GravityVector;
         Vector3Int testOrigin = piece.Origin;
 
-        // 落下できる限り進める
-        while (true)
+        // gravity が (0,0,0) だと無限ループするためガード
+        if (gravity == Vector3Int.zero) return;
+
+        // 落下できる限り進める（最大 Board.Size 回）
+        for (int i = 0; i < Board.Size * Board.Size; i++)
         {
             Vector3Int next  = testOrigin + gravity;
             var        cells = piece.GetWorldCells(next);
-            if (board.CanPlace(cells))
+            if (cells.Count > 0 && board.CanPlace(cells))
                 testOrigin = next;
             else
                 break;

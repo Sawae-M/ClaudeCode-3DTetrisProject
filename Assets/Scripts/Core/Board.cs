@@ -40,6 +40,14 @@ public class Board : MonoBehaviour
         return true;
     }
 
+    // スポーン専用: 範囲外セルは無視し、範囲内セルが既存ブロックと重なる場合のみ false
+    public bool CanSpawn(IEnumerable<Vector3Int> cells)
+    {
+        foreach (var c in cells)
+            if (InBounds(c) && grid[c.x, c.y, c.z]) return false;
+        return true;
+    }
+
     public void Place(IEnumerable<Vector3Int> cells)
     {
         foreach (var c in cells)

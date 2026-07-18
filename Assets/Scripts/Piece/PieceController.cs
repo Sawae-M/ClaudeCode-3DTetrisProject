@@ -132,7 +132,7 @@ public class PieceController : MonoBehaviour
         origin      = spawnPos;
         localCells  = new List<Vector3Int>(def.cells);
 
-        if (!board.CanPlace(GetWorldCells(origin))) return false;
+        if (!board.CanSpawn(GetWorldCells(origin))) return false;
 
         hasPiece  = true;
         fallTimer = 0f;

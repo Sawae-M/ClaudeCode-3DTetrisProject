@@ -69,7 +69,9 @@ public class PieceSpawner : MonoBehaviour
         // entryFace=0（低端から入る）→ minD を合わせる
         // entryFace=Size-1（高端から入る）→ maxD を合わせる
         int entryFace = GetEntryFaceIndex(dir);
-        int originD   = entryFace == 0 ? -minD : entryFace - maxD;
+        // 入口面の最浅セル(minD)を entry face に合わせる。
+        // 深いセルは最初グリッド外に出ても CanSpawn が許容するため問題なし。
+        int originD   = entryFace == 0 ? -minD : entryFace - minD;
 
         return BuildVector(dir, originA, originB, originD);
     }

@@ -3,7 +3,7 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "TetrisCube/PieceDefinition")]
 public class PieceDefinition : ScriptableObject
 {
-    [Tooltip("ピース名 (I, Cross, S, L, Z, Zigzag, ZigzagR)")]
+    [Tooltip("ピース名 (I, O, L, T, S, Tripod, Twist)")]
     public string pieceName;
 
     [Tooltip("ローカル座標オフセット群（重力 Down 基準）")]

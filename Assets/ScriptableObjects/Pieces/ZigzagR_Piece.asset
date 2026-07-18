@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1391653bb2a5b6649a9f9031dad255cb, type: 3}
-  m_Name: ZigzagR_Piece
-  m_EditorClassIdentifier: 
-  pieceName: ZigzagR_Piece
+  m_Name: Twist_Piece
+  m_EditorClassIdentifier:
+  pieceName: Twist_Piece
   cells:
-  - {x: 0, y: 1, z: 0}
-  - {x: 1, y: 1, z: 0}
+  - {x: 0, y: 0, z: 0}
   - {x: 1, y: 0, z: 0}
-  - {x: 2, y: 0, z: 0}
-  color: {r: 0.5, g: 0, b: 1, a: 1}
+  - {x: 1, y: 1, z: 0}
+  - {x: 1, y: 1, z: 1}
+  color: {r: 1, g: 0, b: 1, a: 1}

@@ -48,6 +48,29 @@ public class Board : MonoBehaviour
         return true;
     }
 
+    // 落下移動専用: 入口側OOB（上方向）は通過許可、出口側OOBや占有セルは失敗
+    public bool CanFallIn(IEnumerable<Vector3Int> cells, GravityDirection gravity)
+    {
+        foreach (var c in cells)
+        {
+            if (IsEntryOverflow(c, gravity)) continue;
+            if (!InBounds(c) || grid[c.x, c.y, c.z]) return false;
+        }
+        return true;
+    }
+
+    // 重力の逆方向（入口側）のグリッド外かどうか
+    static bool IsEntryOverflow(Vector3Int c, GravityDirection gravity) => gravity switch
+    {
+        GravityDirection.Down    => c.y >= Size,
+        GravityDirection.Up      => c.y < 0,
+        GravityDirection.Left    => c.x >= Size,
+        GravityDirection.Right   => c.x < 0,
+        GravityDirection.Forward => c.z < 0,
+        GravityDirection.Back    => c.z >= Size,
+        _ => false
+    };
+
     public void Place(IEnumerable<Vector3Int> cells)
     {
         foreach (var c in cells)

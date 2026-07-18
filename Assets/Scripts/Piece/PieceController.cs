@@ -10,7 +10,7 @@ public class PieceController : MonoBehaviour
     public PieceSpawner pieceSpawner;
     public FaceEliminator faceEliminator;
     public GhostPiece ghostPiece;
-    public CameraController cameraController; // 視点連動に使用
+    public CameraController cameraController;
 
     [Header("Prefabs")]
     public GameObject blockPrefab;
@@ -18,6 +18,8 @@ public class PieceController : MonoBehaviour
     PieceDefinition currentDef;
     Vector3Int origin;
     List<Vector3Int> localCells = new();
+    // blockObjects[i] は localCells[i] に対応する固定サイズのプール
+    // 回転・移動時は再生成せず SyncPieceVisuals() で座標・表示だけ更新する
     List<GameObject> blockObjects = new();
 
     float fallTimer;
@@ -26,7 +28,6 @@ public class PieceController : MonoBehaviour
 
     void Start()
     {
-        // Inspector 未設定の場合は自動取得
         if (cameraController == null)
             cameraController = FindObjectOfType<CameraController>();
     }
@@ -41,7 +42,6 @@ public class PieceController : MonoBehaviour
 
     void HandleInput()
     {
-        // カメラ視点に合わせた移動軸を取得
         GetMoveAxesForCamera(
             gravityManager.Current,
             cameraController,
@@ -53,7 +53,6 @@ public class PieceController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.UpArrow))    TryMove(up);
         if (Input.GetKeyDown(KeyCode.DownArrow))  TryMove(down);
 
-        // ピース回転（Y軸: Q=反時計 / E=時計、X軸: Z=前傾 / X=後傾）
         if (Input.GetKeyDown(KeyCode.Q)) TryRotate(c => new Vector3Int(-c.z,  c.y,  c.x));
         if (Input.GetKeyDown(KeyCode.E)) TryRotate(c => new Vector3Int( c.z,  c.y, -c.x));
         if (Input.GetKeyDown(KeyCode.Z)) TryRotate(c => new Vector3Int( c.x,  c.z, -c.y));
@@ -72,39 +71,56 @@ public class PieceController : MonoBehaviour
         if (fallTimer >= interval)
         {
             fallTimer = 0f;
-            if (!TryMove(gravityManager.GravityVector))
+            if (!TryFall())
                 Lock();
         }
     }
 
-    // 90度スナップ回転。範囲外なら即キャンセル（壁キックなし）
-    void TryRotate(System.Func<Vector3Int, Vector3Int> rot)
+    // 重力方向への落下。入口側OOBセルは通過を許可し、出口側OOBで着地と判定する
+    bool TryFall()
     {
-        var rotated = new List<Vector3Int>();
-        foreach (var c in localCells) rotated.Add(rot(c));
-
-        var world = new List<Vector3Int>();
-        foreach (var c in rotated) world.Add(origin + c);
-
-        if (board.CanPlace(world))
+        Vector3Int delta    = gravityManager.GravityVector;
+        var        newCells = GetWorldCells(origin + delta);
+        if (board.CanFallIn(newCells, gravityManager.Current))
         {
-            localCells = rotated;
-            RedrawPiece();
+            origin += delta;
+            SyncPieceVisuals();
             ghostPiece?.UpdateGhost(this);
+            return true;
         }
+        return false;
     }
 
+    // プレイヤー操作による水平移動。全セルが境界内に収まる場合のみ許可
     bool TryMove(Vector3Int delta)
     {
         var newCells = GetWorldCells(origin + delta);
         if (board.CanPlace(newCells))
         {
             origin += delta;
-            RedrawPiece();
+            SyncPieceVisuals();
             ghostPiece?.UpdateGhost(this);
             return true;
         }
         return false;
+    }
+
+    // 90度スナップ回転。全セルが境界内に収まる場合のみ適用（壁キックなし）
+    void TryRotate(System.Func<Vector3Int, Vector3Int> rot)
+    {
+        var rotated = new List<Vector3Int>(localCells.Count);
+        foreach (var c in localCells) rotated.Add(rot(c));
+
+        var world = new List<Vector3Int>(rotated.Count);
+        foreach (var c in rotated) world.Add(origin + c);
+
+        if (board.CanPlace(world))
+        {
+            localCells = rotated;
+            // セル数が同じなので blockObjects は再生成せず座標だけ更新
+            SyncPieceVisuals();
+            ghostPiece?.UpdateGhost(this);
+        }
     }
 
     void Lock()
@@ -128,20 +144,25 @@ public class PieceController : MonoBehaviour
 
     public bool Spawn(PieceDefinition def, Vector3Int spawnPos)
     {
-        currentDef  = def;
-        origin      = spawnPos;
-        localCells  = new List<Vector3Int>(def.cells);
+        currentDef = def;
+        origin     = spawnPos;
+
+        // def.cells を明示的にループでコピーし、SO の配列を直接参照しない
+        localCells = new List<Vector3Int>(def.cells.Length);
+        foreach (var c in def.cells) localCells.Add(c);
 
         if (!board.CanSpawn(GetWorldCells(origin))) return false;
 
+        // ピース数だけ GameObject を生成（以降は座標・表示の更新のみ）
+        CreatePieceObjects();
+        SyncPieceVisuals();
+
         hasPiece  = true;
         fallTimer = 0f;
-        RedrawPiece();
         ghostPiece?.UpdateGhost(this);
         return true;
     }
 
-    // キューブ回転アニメ中にピースをCubeRootへ一時的に接続
     public void AttachToCubeRoot(Transform cubeRoot)
     {
         foreach (var go in blockObjects)
@@ -152,14 +173,13 @@ public class PieceController : MonoBehaviour
     {
         foreach (var go in blockObjects)
             if (go != null) go.transform.SetParent(transform, true);
-        // 回転後にグリッド座標へ再スナップ
-        RedrawPiece();
+        SyncPieceVisuals();
         ghostPiece?.UpdateGhost(this);
     }
 
     public List<Vector3Int> GetWorldCells(Vector3Int org)
     {
-        var result = new List<Vector3Int>();
+        var result = new List<Vector3Int>(localCells.Count);
         foreach (var lc in localCells)
             result.Add(org + lc);
         return result;
@@ -168,21 +188,35 @@ public class PieceController : MonoBehaviour
     public List<Vector3Int> CurrentWorldCells => GetWorldCells(origin);
     public Vector3Int Origin => origin;
 
-    void RedrawPiece()
+    // localCells と 1:1 対応する GameObject を生成する（Spawn 時のみ呼ぶ）
+    void CreatePieceObjects()
     {
         DestroyPieceObjects();
-        foreach (var c in GetWorldCells(origin))
+        for (int i = 0; i < localCells.Count; i++)
         {
-            if (!board.InBounds(c)) continue;
             var go = Instantiate(blockPrefab, transform);
-            go.transform.localPosition = new Vector3(c.x, c.y, c.z);
             var mr = go.GetComponent<MeshRenderer>();
             if (mr != null)
             {
                 mr.material       = new Material(mr.sharedMaterial);
                 mr.material.color = currentDef.color;
             }
+            go.SetActive(false);
             blockObjects.Add(go);
+        }
+    }
+
+    // 各 blockObjects[i] の座標と表示状態を localCells[i] に基づいて同期する
+    // グリッド内なら表示・座標更新、グリッド外なら非表示（入口通過中）
+    void SyncPieceVisuals()
+    {
+        for (int i = 0; i < localCells.Count && i < blockObjects.Count; i++)
+        {
+            Vector3Int wc = origin + localCells[i];
+            bool vis = board.InBounds(wc);
+            blockObjects[i].SetActive(vis);
+            if (vis)
+                blockObjects[i].transform.localPosition = new Vector3(wc.x, wc.y, wc.z);
         }
     }
 
@@ -195,7 +229,6 @@ public class PieceController : MonoBehaviour
 
     // ─────────────────────────────────────────────────────────────
     // カメラ視点に合わせてキー→グリッド移動方向を決定
-    // カメラの右・上ベクトルをグリッド軸にスナップして返す
     // ─────────────────────────────────────────────────────────────
     static void GetMoveAxesForCamera(
         GravityDirection gravity,
@@ -208,15 +241,11 @@ public class PieceController : MonoBehaviour
         Vector3 camFwd   = cam != null ? cam.transform.forward : Vector3.forward;
         Vector3 camUp    = cam != null ? cam.transform.up      : Vector3.up;
 
-        // 右移動軸: カメラ right を重力面に投影
         Vector3 projRight = Vector3.ProjectOnPlane(camRight, gravVec);
         if (projRight.sqrMagnitude < 0.01f)
             projRight = Vector3.ProjectOnPlane(camUp, gravVec);
         projRight = projRight.normalized;
 
-        // 奥行き移動軸: カメラ forward を重力面に投影
-        // 真上・真下視点では forward が重力と平行になるため、
-        // フォールバックとしてカメラ up を使う
         Vector3 projFwd = Vector3.ProjectOnPlane(camFwd, gravVec);
         if (projFwd.sqrMagnitude < 0.01f)
             projFwd = Vector3.ProjectOnPlane(camUp, gravVec);
@@ -225,7 +254,6 @@ public class PieceController : MonoBehaviour
         Vector3Int snapRight = SnapToAxis(projRight);
         Vector3Int snapFwd   = SnapToAxis(projFwd);
 
-        // snapRight と snapFwd が同じ軸になった場合は直交する別軸に補正
         if (snapRight == snapFwd || snapRight == -snapFwd)
             snapFwd = new Vector3Int(snapRight.z, snapRight.x, snapRight.y);
 
@@ -235,7 +263,6 @@ public class PieceController : MonoBehaviour
         down  = -snapFwd;
     }
 
-    // ベクトルを最も近い 6 軸方向（±X/Y/Z）に丸める
     static Vector3Int SnapToAxis(Vector3 v)
     {
         float ax = Mathf.Abs(v.x), ay = Mathf.Abs(v.y), az = Mathf.Abs(v.z);

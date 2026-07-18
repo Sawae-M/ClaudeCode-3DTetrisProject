@@ -24,12 +24,12 @@ public class GhostPiece : MonoBehaviour
         // gravity が (0,0,0) だと無限ループするためガード
         if (gravity == Vector3Int.zero) return;
 
-        // 落下できる限り進める（最大 Board.Size 回）
+        // PieceController と同じ CanFallIn ロジックで着地点を求める
         for (int i = 0; i < Board.Size * Board.Size; i++)
         {
             Vector3Int next  = testOrigin + gravity;
             var        cells = piece.GetWorldCells(next);
-            if (cells.Count > 0 && board.CanPlace(cells))
+            if (cells.Count > 0 && board.CanFallIn(cells, gravityManager.Current))
                 testOrigin = next;
             else
                 break;

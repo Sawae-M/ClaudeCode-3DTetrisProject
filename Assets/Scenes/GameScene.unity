@@ -248,7 +248,6 @@ MonoBehaviour:
   cubeRoot: {fileID: 1333720268}
   gravityManager: {fileID: 1664124505}
   pieceController: {fileID: 1296519473}
-  rotateDuration: 0.3
 --- !u!4 &574739563
 Transform:
   m_ObjectHideFlags: 0
@@ -295,7 +294,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   distance: 12
-  lerpSpeed: 8
+  arcDuration: 0.4
 --- !u!20 &791075847
 Camera:
   m_ObjectHideFlags: 0
@@ -488,13 +487,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2b965ef1cfc385649be54001897dac24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  scoreText: {fileID: 0}
-  levelText: {fileID: 0}
-  nextPieceText: {fileID: 0}
-  gravityText: {fileID: 0}
-  gameOverPanel: {fileID: 0}
-  finalScoreText: {fileID: 0}
-  restartButton: {fileID: 0}
 --- !u!4 &1047146603
 Transform:
   m_ObjectHideFlags: 0
@@ -689,6 +681,7 @@ MonoBehaviour:
   pieceSpawner: {fileID: 1296519475}
   faceEliminator: {fileID: 1664124506}
   ghostPiece: {fileID: 1296519474}
+  cameraController: {fileID: 791075846}
   blockPrefab: {fileID: 518471993818908431, guid: d02cba67a745caa40997a041b9bdf45d, type: 3}
 --- !u!114 &1296519474
 MonoBehaviour:

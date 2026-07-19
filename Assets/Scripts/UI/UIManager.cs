@@ -13,6 +13,14 @@ public class UIManager : MonoBehaviour
 
     void BuildUI()
     {
+        // ── EventSystem（ボタンクリックに必須。無いと UI が反応しない） ──
+        if (UnityEngine.EventSystems.EventSystem.current == null)
+        {
+            var esGO = new GameObject("EventSystem");
+            esGO.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            esGO.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+        }
+
         // ── Canvas（スケーリングなし・ピクセル等倍） ────────────
         var canvasGO = new GameObject("Canvas");
         var canvas   = canvasGO.AddComponent<Canvas>();

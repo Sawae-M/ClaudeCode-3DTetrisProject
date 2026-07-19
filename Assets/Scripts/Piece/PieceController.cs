@@ -125,7 +125,23 @@ public class PieceController : MonoBehaviour
 
     void Lock()
     {
-        board.Place(GetWorldCells(origin));
+        var cells = GetWorldCells(origin);
+
+        // グリッド外セルが残ったままの着地 = 天井からあふれた状態。
+        // 部分ロックすると孤立ブロックが残るため、ここでゲームオーバーにする
+        foreach (var c in cells)
+        {
+            if (!board.InBounds(c))
+            {
+                hasPiece = false;
+                ghostPiece?.ClearGhost();
+                DestroyPieceObjects();
+                GameManager.Instance.TriggerGameOver();
+                return;
+            }
+        }
+
+        board.Place(cells);
         ghostPiece?.ClearGhost();
         DestroyPieceObjects();
 

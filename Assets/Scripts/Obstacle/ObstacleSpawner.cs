@@ -10,6 +10,7 @@ public class ObstacleSpawner : MonoBehaviour
     public GravityManager gravityManager;
 
     [Header("Settings")]
+    public bool  spawnEnabled  = false; // 邪魔ブロック機能のON/OFF（デフォルト無効）
     public float spawnInterval = 20f;   // 何秒ごとに邪魔ブロックを出すか
     public int   blocksPerWave = 3;     // 1波あたりのブロック数
     public GameObject warningBlockPrefab;
@@ -18,6 +19,7 @@ public class ObstacleSpawner : MonoBehaviour
 
     void Update()
     {
+        if (!spawnEnabled) return;
         if (GameManager.Instance?.State != GameState.Playing) return;
 
         timer += Time.deltaTime;
